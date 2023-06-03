@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualize Data with a Scatterplot Graph</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Barlow', sans-serif;
+            background-color: #E6E8E6;
+            color: #2B2C28;
+        }
+        #graph {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-evenly;
+            align-items: center;
+        }
+        #tooltip {
+            background-color: #C1DFF0;
+            padding: 0.5rem;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="graph"></div>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.freecodecamp.org/testable-projects-fcc/v1/bundle.js"></script>
+    <script>
+        const margin = {top: 10, left: 55, bottom: 50, right: 30}
+        const height = 400 - margin.top - margin.bottom;
+        const width = 600 - margin.left - margin.right;
+
+        // ADD TITLE TO GRAPH
+        d3.select("#graph")
+        .append("h1")
+        .text("Doping in Professional Bicycle Racing")
+        .attr("id", "title")
+        .style("margin-bottom", 0);
+
+        // ADD SUBTITLE TO GRAPH
+        d3.select("#graph")
+        .append("p")
+        .text("35 Fastest times up Alpe d'Huez")
+        .style("margin-top", 0);
+
+        // ADD TOOLTIP TO GRAPH
+        const tooltip = d3
+        .select("#graph")
+        .append("div")
+        .attr("id", "tooltip")
+        .style("opacity", 0)
+        .style("position", "absolute");
+
+        // CREATE SVG IN GRAPH
+        const svg = d3
+        .select("#graph")
+        .append("svg")
+        .attr("viewBox", `0 0 ${width + margin.right + margin.left} ${height + margin.top + margin.bottom}`);
+
+        // CREATE LEGEND IN GRAPH
+        const legend = svg.append("g")
+        .attr("id", "legend")
+        .style("font-size", "0.5rem");
+
+        legend.append("rect")
+        .attr("x", width - margin.left - 18)
+        .attr("width", 18)
+        .attr("height", 18)
+        .style("fill", "#3772FF")
+        .style("stroke", "#2B2C28")
+        .style("stroke-width", 0.5);
+
+        legend.append("rect")
+        .attr("x", width - margin.left - 18)
+        .attr("y", 25)
+        .attr("width", 18)
+        .attr("height", 18)
+        .style("fill", "#FDCA40")
+        .style("stroke", "#2B2C28")
+        .style("stroke-width", 0.5);
+
+        legend.append("text")
+        .attr("x", width - margin.left + 2)
+        .attr("y", 12)
+        .text("Riders with doping allegations");
+
+        legend.append("text")
+        .attr("x", width - margin.left + 2)
+        .attr("y", 38)
+        .text("No doping allegations");
+
+        d3.json("https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/cyclist-data.json")
+        .then(data => {
+            // GET DATA
+            const years = data.map((i) => i["Year"]);
+            const time = data.map((i) => i["Seconds"]);
+
+            // GET X SCALE & X AXIS
+            let x_scale = d3
+                .scaleLinear()
+                .domain([d3.min(years) - 1, d3.max(years) + 1])
+                .range([0, width]);
+            let x_axis = d3
+                .axisBottom(x_scale)
+                
+            svg.append("g")
+                .call(x_axis)
+                .attr("id", "x-axis")
+                .attr("transform", `translate(${margin.left}, ${height + margin.top})`);
+
+            // GET Y SCALE & Y AXIS
+            let y_scale = d3
+                .scaleLinear()
+                .domain([d3.max(time), d3.min(time)])
+                .range([height, 0]);
+            let y_axis = d3
+                .axisLeft(y_scale)
+                .tickFormat((d, i) => {
+                    let min = Math.floor(d / 60);
+                    let sec = d - min * 60;
+                    sec = sec == 0 ? "00" : sec;
+                    return `${min}:${sec}`;
+                });
+            svg.append("g")
+                .call(y_axis)
+                .attr("id", "y-axis")
+                .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+            // ADD DATA POINTS TO GRAPH
+            svg.selectAll("circle")
+                .data(data).enter()
+                .append("circle")
+                .attr("class", "dot")
+                .attr("data-xvalue", (d) => d["Year"])
+                .attr("data-yvalue", (d) => new Date(d["Seconds"] * 1000))
+                .attr("cx", (d) => x_scale(d["Year"]))
+                .attr("cy", (d) => y_scale(d["Seconds"]))
+                .attr("r", 4)
+                .attr("transform", `translate(${margin.left}, ${margin.top})`)
+                .attr("index", (d, i) => i)
+                .style("fill", (d) => d["Doping"] != "" ? "#3772FF" : "#FDCA40")
+                .style("stroke", "#2B2C28")
+                .style("stroke-width", 0.5)
+                .on("mouseover", (e, d) => {
+                    tooltip.transition().duration(100).style("opacity", 0.9);
+                    tooltip.html(`${d["Name"]}:${d["Nationality"]}<br>Year:${d["Year"]}, Time:${d["Time"]}<br>${d["Doping"]}`)
+                    .style("top", e.pageY - 30 + "px")
+                    .style("left", e.pageX + 10 + "px")
+                    .attr("data-year", d["Year"])
+                })
+                .on("mouseout", (e) => {
+                    tooltip.transition().duration(200).style("opacity", 0);
+                });
+        })
+        .catch((e) => console.log(e));
+    </script>
+</body>
+</html>
